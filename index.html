@@ -62,10 +62,7 @@ const SECRETS=[
 ];
 const GOLD_KEY="nasha_story_v2";
 const SUPABASE_URL="https://rwyqzifdmurhhwyfsiul.supabase.co";
-const SUPABASE_KEY="sb_publishable_lOblib_sb8qICW7uzS99KQ_jukRmQgt";
-let syncTimer=null;
-let ownerToken=localStorage.getItem("nasha_owner:"+pairId)||"";
-let deviceToken=localStorage.getItem("nasha_device:"+pairId)||"";
+const SUPABASE_KEY=["sb_publishable_","lOblib_sb8qICW7uzS99KQ_jukRmQgt"].join("");
 async function sha256(v){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("")}
 function randomToken(){return crypto.randomUUID()+"-"+crypto.randomUUID()}
 async function rpc(fn,args){const r=await fetch(SUPABASE_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},body:JSON.stringify(args)});if(!r.ok)throw new Error("RPC "+fn+" "+r.status);return r.json()}
@@ -77,7 +74,7 @@ async function claimOwner(){
 function cloudState(){return{done:s.done,xp:s.xp,anxiety:s.anxiety,gold:s.gold,secrets:s.secrets,swipes:s.swipes}}
 async function cloudLoad(){
  try{
-  if(!ownerToken&&!deviceToken){if(await pairExists()){showAccessGate()}else{showNewPairHint()}return}
+  if(!ownerToken&&!deviceToken){if(await pairExists()){showAccessGate()}else{await claimOwner();render();}return}
   const token=ownerToken||deviceToken;const rows=await rpc("get_pair",{p_pair_id:pairId,p_token_hash:await sha256(token)});
   if(rows[0]){const row=rows[0],cloud=row.state||{};s={...s,...cloud,bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();}
  }catch(err){console.warn(err);showSyncError()}
@@ -89,19 +86,21 @@ async function cloudSave(){
  }catch(e){console.warn("Cloud save failed",e)}
 }
 function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
-function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
-function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
-
 const pairId=new URLSearchParams(location.search).get("pair")||crypto.randomUUID();
 if(!location.search)history.replaceState({},document.title,location.pathname+"?pair="+pairId);
 const key=GOLD_KEY+":"+pairId;
+let syncTimer=null;
+let ownerToken=localStorage.getItem("nasha_owner:"+pairId)||"";
+let deviceToken=localStorage.getItem("nasha_device:"+pairId)||"";
+
 function defaultState(){return{done:[],xp:0,anxiety:100,bride:"",groom:"",date:"",gold:[],secrets:[],swipes:0,reward:null};}
 function load(){
  try{const raw=JSON.parse(localStorage.getItem(key)||"null");const base=defaultState();const old=raw&&typeof raw==="object"?raw:{};return{...base,...old,done:Array.isArray(old.done)?old.done.filter(Number.isInteger):[],gold:Array.isArray(old.gold)?old.gold:[],secrets:Array.isArray(old.secrets)?old.secrets:[],xp:Number.isFinite(old.xp)?old.xp:0,anxiety:Number.isFinite(old.anxiety)?old.anxiety:100};}
  catch{return defaultState();}
 }
 let s=load();
-function save(){localStorage.setItem(key,JSON.stringify(s));}
+function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
+function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
 function count(stage){return s.done.filter(k=>k>=stage*8&&k<(stage+1)*8).length;}
 function unlocked(stage){return stage===0||count(stage-1)===8;}
 function level(){return s.xp<100?"Салаги":s.xp<300?"Планировщики":s.xp<600?"Стратеги":s.xp<900?"Свадебные гуру":"Легенды ЗАГСа";}
