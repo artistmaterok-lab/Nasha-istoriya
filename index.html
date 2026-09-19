@@ -26,9 +26,9 @@ button:hover:not(:disabled){border-color:#8d6a31}button:disabled{cursor:default}
 <input id="groom" maxlength="40" placeholder="Имя жениха">
 <input id="wdate" type="date">
 <button type="button" data-action="save-profile">💞 Сохранить данные пары</button>
-<div id="share" class="muted"></div>
+<div id="share" class="muted"></div><div id="ownerTools"></div>
 </div>
-<div id="dash"></div><div id="play"></div><div id="route"></div>
+<div id="access"></div><div id="dash"></div><div id="play"></div><div id="route"></div>
 </div>
 <script>
 "use strict";
@@ -64,9 +64,32 @@ const GOLD_KEY="nasha_story_v2";
 const SUPABASE_URL="https://rwyqzifdmurhhwyfsiul.supabase.co";
 const SUPABASE_KEY="sb_publishable_lOblib_sb8qICW7uzS99KQ_jukRmQgt";
 let syncTimer=null;
-async function cloudLoad(){try{const r=await fetch(SUPABASE_URL+"/rest/v1/wedding_couples?id=eq."+encodeURIComponent(pairId)+"&select=*",{headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});if(!r.ok)return;const rows=await r.json();if(rows[0]){const row=rows[0],cloud=row.state||{};s={...s,...cloud,bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();}}catch(e){console.warn("Cloud load failed",e)}}
-async function cloudSave(){try{const payload={id:pairId,bride_name:s.bride||"",groom_name:s.groom||"",wedding_date:s.date||null,updated_at:new Date().toISOString(),state:{done:s.done,xp:s.xp,anxiety:s.anxiety,gold:s.gold,secrets:s.secrets,swipes:s.swipes}};await fetch(SUPABASE_URL+"/rest/v1/wedding_couples",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});}catch(e){console.warn("Cloud save failed",e)}}
+let ownerToken=localStorage.getItem("nasha_owner:"+pairId)||"";
+let deviceToken=localStorage.getItem("nasha_device:"+pairId)||"";
+async function sha256(v){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function randomToken(){return crypto.randomUUID()+"-"+crypto.randomUUID()}
+async function rpc(fn,args){const r=await fetch(SUPABASE_URL+"/rest/v1/rpc/"+fn,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},body:JSON.stringify(args)});if(!r.ok)throw new Error("RPC "+fn+" "+r.status);return r.json()}
+async function pairExists(){return !!(await rpc("pair_exists",{p_pair_id:pairId}))}
+async function claimOwner(){
+ ownerToken=randomToken();localStorage.setItem("nasha_owner:"+pairId,ownerToken);deviceToken=ownerToken;
+ await rpc("claim_pair",{p_pair_id:pairId,p_owner_hash:await sha256(ownerToken),p_bride:s.bride||"",p_groom:s.groom||"",p_date:s.date||null,p_state:cloudState()});
+}
+function cloudState(){return{done:s.done,xp:s.xp,anxiety:s.anxiety,gold:s.gold,secrets:s.secrets,swipes:s.swipes}}
+async function cloudLoad(){
+ try{
+  if(!ownerToken&&!deviceToken){if(await pairExists()){showAccessGate()}else{showNewPairHint()}return}
+  const token=ownerToken||deviceToken;const rows=await rpc("get_pair",{p_pair_id:pairId,p_token_hash:await sha256(token)});
+  if(rows[0]){const row=rows[0],cloud=row.state||{};s={...s,...cloud,bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();}
+ }catch(err){console.warn(err);showSyncError()}
+}
+async function cloudSave(){
+ try{
+  if(!ownerToken&&!deviceToken)return;
+  await rpc("save_pair",{p_pair_id:pairId,p_token_hash:await sha256(ownerToken||deviceToken),p_bride:s.bride||"",p_groom:s.groom||"",p_date:s.date||null,p_state:cloudState()});
+ }catch(e){console.warn("Cloud save failed",e)}
+}
 function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
+function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
 function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
 
 const pairId=new URLSearchParams(location.search).get("pair")||crypto.randomUUID();
@@ -88,11 +111,28 @@ function complete(stage,t){
  const k=stage*8+t;if(!unlocked(stage)||s.done.includes(k))return;
  s.done.push(k);s.xp+=25;s.anxiety=Math.max(10,Math.round(100-s.done.length*1.35));s.reward={stage,t,discussed:false};save();render();showPopup(TASKS[k][0]);
 }
+function showNewPairHint(){document.getElementById("access").innerHTML='<div class="card"><b>🔐 Это новая ссылка пары</b><p class="muted">Сохраните данные пары — это устройство станет главным устройством.</p></div>'}
+function showAccessGate(){document.getElementById("access").innerHTML='<div class="card"><h3>🔐 Доступ к паре</h3><p class="muted">Эта ссылка защищена. Введите одноразовый код, который создатель пары получил на своём устройстве.</p><input id="inviteCode" inputmode="numeric" maxlength="6" placeholder="6-значный код"><button data-action="redeem-code">Подключить устройство</button><p id="accessMsg" class="muted"></p></div>'}
+function showSyncError(){document.getElementById("access").innerHTML='<div class="card"><b>⚠️ Нет связи с облаком</b><p class="muted">Локальный прогресс сохранён. Повторная синхронизация произойдёт автоматически.</p></div>'}
+async function generateInvite(){
+ if(!ownerToken)return;
+ const code=String(Math.floor(100000+Math.random()*900000));const hash=await sha256(code);
+ await rpc("issue_pair_code",{p_pair_id:pairId,p_owner_hash:await sha256(ownerToken),p_code_hash:hash,p_expires:new Date(Date.now()+10*60*1000).toISOString()});
+ document.getElementById("access").innerHTML='<div class="card reward"><h3>📱 Код для второго устройства</h3><div style="font-size:34px;letter-spacing:8px;text-align:center;font-weight:800">'+code+'</div><p class="muted center">Действует 10 минут и используется один раз.</p><button data-action="hide-access">Скрыть код</button></div>';
+}
+async function redeemCode(){
+ const input=document.getElementById("inviteCode"),msg=document.getElementById("accessMsg"),code=(input?.value||"").replace(/\D/g,"");
+ if(code.length!==6){msg.textContent="Введите 6 цифр.";return}
+ try{const token=randomToken(),ok=await rpc("redeem_pair_invite",{p_pair_id:pairId,p_code_hash:await sha256(code),p_device_hash:await sha256(token)});if(!ok){msg.textContent="Код недействителен или уже использован.";return}deviceToken=token;localStorage.setItem("nasha_device:"+pairId,deviceToken);document.getElementById("access").innerHTML="";await cloudLoad();}catch(e){msg.textContent="Не удалось подключить устройство.";}}
+async function revokeAccess(){
+ if(!ownerToken)return;await rpc("revoke_pair_devices",{p_pair_id:pairId,p_owner_hash:await sha256(ownerToken)});document.getElementById("access").innerHTML='<div class="card"><b>🔒 Доступ отозван</b><p class="muted">Все подключённые вторые устройства отключены.</p></div>';
+}
 function saveProfile(){
  s.bride=document.getElementById("bride").value.trim().slice(0,40);
  s.groom=document.getElementById("groom").value.trim().slice(0,40);
  s.date=document.getElementById("wdate").value;
  save();render();
+ cloudSave();
 }
 function discuss(){if(!s.reward||s.reward.discussed)return;s.xp+=10;s.swipes++;s.reward.discussed=true;save();render();}
 function closeReward(){s.reward=null;save();render();}
@@ -107,7 +147,7 @@ function showPopup(title){
 }
 function render(){
  document.getElementById("bride").value=s.bride||"";document.getElementById("groom").value=s.groom||"";document.getElementById("wdate").value=s.date||"";
- document.getElementById("share").innerHTML=s.bride&&s.groom?"🔗 Ссылка пары: "+escapeHtml(location.href):"";
+ document.getElementById("share").innerHTML=s.bride&&s.groom?"🔗 Ссылка пары: "+escapeHtml(location.href):"";document.getElementById("ownerTools").innerHTML=ownerToken?'<button type="button" data-action="invite">📱 Пригласить второе устройство</button><button type="button" data-action="revoke">🔒 Отозвать доступ</button>':"";
  document.getElementById("dash").innerHTML=s.bride?'<div class="card"><h2 class="center">'+escapeHtml(s.bride)+' ❤️ '+escapeHtml(s.groom)+'</h2><p class="center">'+(s.date?("До свадьбы: "+Math.max(0,Math.ceil((new Date(s.date+"T12:00:00")-new Date())/86400000))+" дней"):"Дата не выбрана")+'</p><div class="stats"><div class="stat"><b>'+s.xp+'</b>⭐ XP</div><div class="stat"><b>'+s.done.length+'/40</b>✅ дела</div><div class="stat"><b>'+level()+'</b>🎖 уровень</div></div><p class="muted">😌 Тревожность: '+s.anxiety+'%</p><div class="bar"><i style="width:'+s.anxiety+'%"></i></div><p class="muted">'+anxietyText()+'</p></div>':"";
  document.getElementById("route").innerHTML='<div class="card"><h2>🗺️ Ваш свадебный путь</h2><p class="muted">Все задания открытого этапа доступны сразу. Выбирайте любое.</p>'+STAGES.map((x,i)=>{const c=count(i),op=unlocked(i);return '<div class="stage '+(op?"open":"locked")+" "+(c===8?"done":"")+'"><div class="stageTop"><h3>'+x[0]+" "+x[1]+'</h3><span class="badge">'+(c===8?"✓ готово":op?"🔓 открыто":"🔒 закрыто")+'</span></div><p class="muted">'+x[2]+' · '+c+'/8</p>'+TASKS.slice(i*8,i*8+8).map((t,j)=>{const k=i*8+j,d=s.done.includes(k);return '<button type="button" class="task '+(d?"done":"")+'" '+(!op||d?"disabled":"")+' data-action="task" data-stage="'+i+'" data-task="'+j+'">'+(d?"✅":"⬜")+' <span><b>'+escapeHtml(t[0])+'</b><small>'+escapeHtml(t[1])+'</small></span></button>';}).join("")+'</div>';}).join("")+'</div>';
  let goldHTML='<div class="card"><h2>🏆 Золотые конверты</h2>'+GOLD.map((g,i)=>count(i)===8?'<button class="gold" data-action="gold" data-i="'+i+'">'+(s.gold[i]?"✓ ":"🏆 ")+escapeHtml(g[0])+'</button>':"").join("")+'</div>';
@@ -119,7 +159,7 @@ document.addEventListener("click",e=>{
  const b=e.target.closest("[data-action]");if(!b)return;
  const a=b.dataset.action;
  if(a==="task"){complete(Number(b.dataset.stage),Number(b.dataset.task));return;}
- if(a==="save-profile"){saveProfile();return;}
+ if(a==="save-profile"){saveProfile();return;} if(a==="invite"){generateInvite();return;} if(a==="revoke"){revokeAccess();return;} if(a==="redeem-code"){redeemCode();return;} if(a==="hide-access"){document.getElementById("access").innerHTML="";return;}
  if(a==="discuss"){discuss();return;}
  if(a==="close-reward"){closeReward();return;}
  if(a==="close-popup"){document.getElementById("popup")?.remove();return;}
