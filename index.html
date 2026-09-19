@@ -36,15 +36,7 @@ const SECRETS=[
 ["Начало истории","Каждый назовите, чего больше всего ждёте от семейной жизни."],["Воспоминание","Загадка: то, что нельзя потрогать, но можно хранить годами. Ответ: воспоминание. Найдите общую фотографию и расскажите её историю."],["Три слова","Каждый назовите три слова, описывающие ваши отношения. Повторы запрещены."],["Наш символ","Найдите рядом предмет, который напоминает вам о вашей паре."],["Вкусное воспоминание","Каждый назовите блюдо, связанное с приятным общим воспоминанием."],["Наша песня","Каждый назовите песню, которая напоминает о вашей истории."],["Через год","Закончите: «Через год я хочу, чтобы мы обязательно…»"],["Тайный знак","Придумайте жест или фразу со смыслом: «давай минуту только вдвоём»."],["Маленькое спасибо","Каждый назовите одну вещь, за которую благодарны друг другу сегодня."],["Финальная глава","Закончите: «Я хочу, чтобы в день нашей свадьбы мы обязательно…»"]];
 let id=new URLSearchParams(location.search).get("pair")||crypto.randomUUID();if(!location.search)history.replaceState({},'',location.pathname+"?pair="+id);
 let key="nasha:"+id,s=JSON.parse(localStorage.getItem(key)||"{}");s.done=s.done||[];s.xp=s.xp||0;s.anxiety=s.anxiety??100;s.gold=s.gold||[];s.secrets=s.secrets||[];s.swipes=s.swipes||0;
-function save(){localStorage.setItem(key,JSON.stringify(s))}function quickComplete(j){
-  let k=j;
-  if(s.done.includes(k)){return}
-  s.done.push(k);s.xp+=25;s.anxiety=Math.max(10,Math.round(100-s.done.length*1.35));
-  s.reward={stage:0,t:j};save();
-  let b=document.querySelector('[data-quick="'+j+'"]');
-  if(b){b.disabled=true;b.classList.add("done");b.innerHTML="✅ <span><b>"+TASKS[j][0]+"</b><small>"+TASKS[j][1]+"</small></span>"}
-  showPopup(TASKS[j][0]);
-}
+function save(){localStorage.setItem(key,JSON.stringify(s))}function quickComplete(j){complete(0,j,true)}
 function showPopup(title){
   let old=document.getElementById("quickPopup");if(old)old.remove();
   let p=document.createElement("div");p.id="quickPopup";
@@ -57,7 +49,7 @@ function anxietyText(){return s.anxiety>75?"Пока немного волнит
 function count(i){return s.done.filter(x=>Math.floor(x/100)===i).length}
 function unlocked(i){return i===0||count(i-1)===8}
 function saveProfile(){s.bride=document.getElementById("bride").value.trim();s.groom=document.getElementById("groom").value.trim();s.date=document.getElementById("wdate").value;save();render()}
-function complete(stage,t){let k=stage*100+t;if(!unlocked(stage)||s.done.includes(k))return;s.done.push(k);s.xp+=25;s.anxiety=Math.max(10,Math.round(100-s.done.length*1.35));s.reward={stage,t};save();render()}
+function complete(stage,t,popup=false){let k=stage*100+t;if(!unlocked(stage)||s.done.includes(k))return;s.done.push(k);s.xp+=25;s.anxiety=Math.max(10,Math.round(100-s.done.length*1.35));s.reward={stage,t};save();render();if(popup||stage===0)showPopup(TASKS[k][0])}
 function discuss(){s.xp+=10;s.swipes++;s.anxiety=Math.max(10,s.anxiety-1);s.reward.discussed=true;save();render()}
 function closeReward(){s.reward=null;save();render()}
 function openGold(i){s.gold[i]=true;save();document.getElementById("play").innerHTML='<div class="card reward"><h2>🏆 '+GOLD[i][0]+'</h2><p>'+GOLD[i][1]+'</p><div class="card"><b>💞 Мини-задание</b><p>'+GOLD[i][2]+'</p><p>📸 Сделайте фото «только для двоих». Мы сохраняем только отметку о моменте.</p></div><button class="gold" onclick="closePlay()">Совет сохранён ❤️</button></div>'}
