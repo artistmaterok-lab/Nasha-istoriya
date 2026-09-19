@@ -110,7 +110,7 @@ async function cloudLoad(){
  try{
   if(!ownerToken&&!deviceToken){if(await pairExists()){showAccessGate()}else{await claimOwner();render();}return}
   const token=ownerToken||deviceToken;const rows=await rpc("get_pair",{p_pair_id:pairId,p_token_hash:await sha256(token)});
-  if(rows[0]){const row=rows[0],cloud=row.state&&typeof row.state==="object"?row.state:{},localDone=Array.isArray(s.done)?s.done:[],cloudDone=Array.isArray(cloud.done)?cloud.done.filter(Number.isInteger):[],mergedDone=[...new Set([...localDone,...cloudDone])].sort((a,b)=>a-b),localGold=Array.isArray(s.gold)?s.gold:[],cloudGold=Array.isArray(cloud.gold)?cloud.gold:[],localSecrets=Array.isArray(s.secrets)?s.secrets:[],cloudSecrets=Array.isArray(cloud.secrets)?cloud.secrets:[],localWasAhead=localDone.length>cloudDone.length;s={...s,...cloud,done:mergedDone,gold:[...new Set([...localGold,...cloudGold])],secrets:[...new Set([...localSecrets,...cloudSecrets])],xp:Math.max(Number.isFinite(s.xp)?s.xp:0,Number.isFinite(cloud.xp)?cloud.xp:0),anxiety:Math.max(10,Math.round(100-mergedDone.length*1.35)),bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();if(localWasAhead)cloudSave();}
+  if(rows[0]){const row=rows[0],cloud=row.state&&typeof row.state==="object"?row.state:{},localDone=Array.isArray(s.done)?s.done:[],cloudDone=Array.isArray(cloud.done)?cloud.done.filter(Number.isInteger):[],mergedDone=[...new Set([...localDone,...cloudDone])].sort((a,b)=>a-b),localGold=Array.isArray(s.gold)?s.gold:[],cloudGold=Array.isArray(cloud.gold)?cloud.gold:[],localSecrets=Array.isArray(s.secrets)?s.secrets:[],cloudSecrets=Array.isArray(cloud.secrets)?cloud.secrets:[],localWasAhead=localDone.length>cloudDone.length;s={...s,done:mergedDone,gold:[...new Set([...localGold,...cloudGold])],secrets:[...new Set([...localSecrets,...cloudSecrets])],xp:Math.max(Number.isFinite(s.xp)?s.xp:0,Number.isFinite(cloud.xp)?cloud.xp:0),anxiety:Math.max(10,Math.round(100-mergedDone.length*1.35)),bride:s.bride||row.bride_name||"",groom:s.groom||row.groom_name||"",date:s.date||row.wedding_date||""};saveLocal();render();if(localWasAhead)cloudSave();}
  }catch(err){console.warn(err);showSyncError()}
 }
 async function cloudSave(){
@@ -214,7 +214,7 @@ document.addEventListener("click",e=>{
  if(a==="close-play"){closePlay();}
 });
 render();
-cloudLoad();
+setTimeout(()=>cloudLoad(),0);
 </script>
 </body>
 </html>
