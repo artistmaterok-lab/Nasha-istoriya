@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Наша история — Артём Глинский</title>
+<style>body{font-family:Arial;background:#111;color:#fff;padding:20px}.card{background:#222;padding:18px;border-radius:16px;margin:12px 0}.lock{opacity:.45}button{display:block;width:100%;margin:8px 0;padding:12px;border-radius:12px}</style>
+</head>
+<body>
+<h1>Наша история</h1>
+<p>Свадебный чек-лист от Артёма Глинского</p>
+<div id="app"></div>
+<script>
+const cats=['Основа свадьбы','Праздник','Гости и команда','Финальная подготовка','Главный день'];
+const tasks=Array.from({length:5},(_,c)=>Array.from({length:8},(_,i)=>`Задание ${i+1}`));
+let done=JSON.parse(localStorage.done||'[]');
+function draw(){app.innerHTML=cats.map((c,i)=>{let open=i===0||done.filter(x=>Math.floor(x/100)===i-1).length===8;return `<div class="card ${open?'':'lock'}"><h2>${open?'🔓':'🔒'} ${c}</h2>${open?tasks[i].map((t,j)=>`<button onclick="go(${i},${j})">${done.includes(i*100+j)?'✅ ':''}${t}</button>`).join(''):'Откроется после завершения блока'}</div>`}).join('')}
+function go(c,t){if(!done.includes(c*100+t)){done.push(c*100+t);localStorage.done=JSON.stringify(done)}draw()}draw();
+</script>
+</body></html>
