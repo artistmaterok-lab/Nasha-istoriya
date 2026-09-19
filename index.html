@@ -50,6 +50,8 @@ const HOST=[
 ];
 const SWIPE=["Что для нас важнее всего в этом пункте?","Что сделает этот день именно нашим?","Где мы готовы уступить друг другу?","Что здесь можно упростить без потери смысла?","Что мы хотим вспоминать через десять лет?"];
 const FUNNY=["принести кофе, даже если тебя не просили.","отдать последний вкусный кусочек и сделать вид, что не хотелось.","знать, где лежит зарядка другого человека.","сначала обнять, а потом обсуждать таблицу расходов.","смеяться над одной и той же шуткой в сотый раз."];
+const FINAL_ADVICE=["Перед свадьбой остановитесь на минуту. Посмотрите друг на друга и вспомните: вы уже сделали главное — выбрали друг друга.","Завтра не нужно быть идеальными. Нужно быть рядом. Если что-то пойдёт не по плану — сначала найдите друг друга глазами, а потом решайте.","И маленький секрет от Артёма: оставьте хотя бы пять минут только для вас двоих. Без гостей, телефонов и тайминга. Именно этот момент потом может оказаться самым дорогим воспоминанием.","В день свадьбы не пытайтесь успеть всё. Успейте прожить этот день. Смеяться, обниматься, смотреть друг на друга и иногда просто говорить: «Мы правда это сделали»."];
+const FINAL_KEY="finalAdviceSeen";
 const GOLD=[
 ["Не потеряйте главное","Свадьба начинается не с декора, а с человека рядом.","Назовите друг другу то, чего больше всего ждёте в семейной жизни."],
 ["Сделайте свадьбу своей","Самые сильные истории нельзя скопировать.","Назовите одну деталь, которую хотите сделать только по-своему."],
@@ -137,6 +139,7 @@ function discuss(){if(!s.reward||s.reward.discussed)return;s.xp+=10;s.swipes++;s
 function closeReward(){s.reward=null;save();render();}
 function openGold(i){if(count(i)!==8)return;s.gold[i]=true;save();document.getElementById("play").innerHTML='<div class="card reward"><span class="pill">🏆 Золотой конверт</span><h2>'+escapeHtml(GOLD[i][0])+'</h2><p>'+escapeHtml(GOLD[i][1])+'</p><div class="card"><b>💞 Мини-задание</b><p>'+escapeHtml(GOLD[i][2])+'</p><p>📸 Сделайте фото «только для двоих». Фото не загружается в приложение.</p></div><button data-action="close-play">Совет сохранён ❤️</button></div>';}
 function closePlay(){document.getElementById("play").innerHTML="";render();}
+function openFinalAdvice(){if(s.done.length<40)return;s.finalAdvice=true;save();document.getElementById("play").innerHTML='<div class="card reward"><span class="pill">🔐 Секрет от Артёма</span><h2>Перед самой свадьбой…</h2><p>'+escapeHtml(FINAL_ADVICE[Math.min(3,Math.floor(s.xp/300))])+'</p><p class="muted">Этот совет остаётся только у вас двоих. Не нужно ничего отмечать — просто сохраните этот момент.</p><button data-action="close-play">Спасибо, Артём ❤️</button></div>';}
 function openSecret(i){if(!s.secrets.includes(i)){s.secrets.push(i);s.xp+=35;save();}document.getElementById("play").innerHTML='<div class="card secret"><span class="pill">+35 XP</span><h2>🔐 '+escapeHtml(SECRETS[i][0])+'</h2><p>'+escapeHtml(SECRETS[i][1])+'</p><button data-action="close-play">Глава прожита ❤️</button></div>';}
 function showPopup(title){
  const old=document.getElementById("popup");if(old)old.remove();
@@ -150,9 +153,10 @@ function render(){
  document.getElementById("dash").innerHTML=s.bride?'<div class="card"><h2 class="center">'+escapeHtml(s.bride)+' ❤️ '+escapeHtml(s.groom)+'</h2><p class="center">'+(s.date?("До свадьбы: "+Math.max(0,Math.ceil((new Date(s.date+"T12:00:00")-new Date())/86400000))+" дней"):"Дата не выбрана")+'</p><div class="stats"><div class="stat"><b>'+s.xp+'</b>⭐ XP</div><div class="stat"><b>'+s.done.length+'/40</b>✅ дела</div><div class="stat"><b>'+level()+'</b>🎖 уровень</div></div><p class="muted">😌 Тревожность: '+s.anxiety+'%</p><div class="bar"><i style="width:'+s.anxiety+'%"></i></div><p class="muted">'+anxietyText()+'</p></div>':"";
  document.getElementById("route").innerHTML='<div class="card"><h2>🗺️ Ваш свадебный путь</h2><p class="muted">Все задания открытого этапа доступны сразу. Выбирайте любое.</p>'+STAGES.map((x,i)=>{const c=count(i),op=unlocked(i);return '<div class="stage '+(op?"open":"locked")+" "+(c===8?"done":"")+'"><div class="stageTop"><h3>'+x[0]+" "+x[1]+'</h3><span class="badge">'+(c===8?"✓ готово":op?"🔓 открыто":"🔒 закрыто")+'</span></div><p class="muted">'+x[2]+' · '+c+'/8</p>'+TASKS.slice(i*8,i*8+8).map((t,j)=>{const k=i*8+j,d=s.done.includes(k);return '<button type="button" class="task '+(d?"done":"")+'" '+(!op||d?"disabled":"")+' data-action="task" data-stage="'+i+'" data-task="'+j+'">'+(d?"✅":"⬜")+' <span><b>'+escapeHtml(t[0])+'</b><small>'+escapeHtml(t[1])+'</small></span></button>';}).join("")+'</div>';}).join("")+'</div>';
  let goldHTML='<div class="card"><h2>🏆 Золотые конверты</h2>'+GOLD.map((g,i)=>count(i)===8?'<button class="gold" data-action="gold" data-i="'+i+'">'+(s.gold[i]?"✓ ":"🏆 ")+escapeHtml(g[0])+'</button>':"").join("")+'</div>';
+ let finalHTML=s.done.length===40?'<div class="card reward"><span class="pill">💍 40/40</span><h2>Финальный секрет</h2><p>Вы прошли весь свадебный путь. Перед самым днём для вас есть один личный совет от Артёма.</p><button data-action="final-advice">🔐 Открыть секретный совет</button></div>':"";
  let secretsHTML='<div class="card"><h2>🔐 Секретные главы</h2><p class="muted">Не обязательны для прогресса. Каждая даёт +35 XP.</p>'+SECRETS.map((x,i)=>s.secrets.includes(i)?'<button disabled>✓ '+escapeHtml(x[0])+'</button>':'<button data-action="secret" data-i="'+i+'">🔐 '+escapeHtml(x[0])+' · секретная глава</button>').join("")+'</div>';
  let play=document.getElementById("play");
- if(s.reward){const n=s.reward.stage*8+s.reward.t,task=TASKS[n];play.innerHTML='<div class="card reward"><span class="pill">🎉 Задание выполнено · +25 XP</span><h2>'+escapeHtml(task[0])+'</h2><p>🎤 <b>Совет Артёма:</b> '+escapeHtml(HOST[n%HOST.length])+'</p><p>💞 <b>Любовь — это…</b> '+escapeHtml(FUNNY[n%FUNNY.length])+'</p><div class="card"><b>💬 Мини-свайп</b><p>'+escapeHtml(SWIPE[n%SWIPE.length])+'</p>'+(!s.reward.discussed?'<button data-action="discuss">Обсудили вдвоём · +10 XP</button>':'<p class="muted">✓ Обсуждение отмечено</p>')+'</div><button data-action="close-reward">Продолжить без выбора следующей задачи →</button></div>';}else{play.innerHTML=goldHTML+secretsHTML;}
+ if(s.reward){const n=s.reward.stage*8+s.reward.t,task=TASKS[n];play.innerHTML='<div class="card reward"><span class="pill">🎉 Задание выполнено · +25 XP</span><h2>'+escapeHtml(task[0])+'</h2><p>🎤 <b>Совет Артёма:</b> '+escapeHtml(HOST[n%HOST.length])+'</p><p>💞 <b>Любовь — это…</b> '+escapeHtml(FUNNY[n%FUNNY.length])+'</p><div class="card"><b>💬 Мини-свайп</b><p>'+escapeHtml(SWIPE[n%SWIPE.length])+'</p>'+(!s.reward.discussed?'<button data-action="discuss">Обсудили вдвоём · +10 XP</button>':'<p class="muted">✓ Обсуждение отмечено</p>')+'</div><button data-action="close-reward">Продолжить без выбора следующей задачи →</button></div>';}else{play.innerHTML=finalHTML+goldHTML+secretsHTML;}
 }
 document.addEventListener("click",e=>{
  const b=e.target.closest("[data-action]");if(!b)return;
@@ -163,7 +167,7 @@ document.addEventListener("click",e=>{
  if(a==="close-reward"){closeReward();return;}
  if(a==="close-popup"){document.getElementById("popup")?.remove();return;}
  if(a==="gold"){openGold(Number(b.dataset.i));return;}
- if(a==="secret"){openSecret(Number(b.dataset.i));return;}
+ if(a==="secret"){openSecret(Number(b.dataset.i));return;} if(a==="final-advice"){openFinalAdvice();return;}
  if(a==="close-play"){closePlay();}
 });
 render();
