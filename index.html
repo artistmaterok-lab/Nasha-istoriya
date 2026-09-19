@@ -41,7 +41,7 @@ function level(){return s.xp<100?"Салаги":s.xp<300?"Планировщик
 function anxietyText(){return s.anxiety>75?"Пока немного волнительно… и это нормально.":s.anxiety>50?"Потихоньку разбираемся. Уже не так страшно.":s.anxiety>25?"Большая часть дел позади. Дышим спокойнее.":"Вы почти у цели. Осталось совсем немного ❤️"}
 function count(i){return s.done.filter(x=>Math.floor(x/100)===i).length}
 function unlocked(i){return i===0||count(i-1)===8}
-function saveProfile(){s.bride=bride.value.trim();s.groom=groom.value.trim();s.date=wdate.value;save();render()}
+function saveProfile(){s.bride=document.getElementById("bride").value.trim();s.groom=document.getElementById("groom").value.trim();s.date=document.getElementById("wdate").value;save();render()}
 function complete(stage,t){let k=stage*100+t;if(!unlocked(stage)||s.done.includes(k))return;s.done.push(k);s.xp+=25;s.anxiety=Math.max(10,Math.round(100-s.done.length*1.35));s.reward={stage,t};save();render()}
 function discuss(){s.xp+=10;s.swipes++;s.anxiety=Math.max(10,s.anxiety-1);s.reward.discussed=true;save();render()}
 function closeReward(){s.reward=null;save();render()}
@@ -49,7 +49,7 @@ function openGold(i){s.gold[i]=true;save();play.innerHTML='<div class="card rewa
 function closePlay(){play.innerHTML="";render()}
 function openSecret(i){if(!s.secrets.includes(i)){s.secrets.push(i);s.xp+=35;save()}play.innerHTML='<div class="card secret"><span class="pill">+35 XP</span><h2>🔐 '+SECRETS[i][0]+'</h2><p>'+SECRETS[i][1]+'</p><button onclick="closePlay()">Глава прожита ❤️</button></div>'}
 function render(){
-bride.value=s.bride||"";groom.value=s.groom||"";wdate.value=s.date||"";share.innerHTML=s.bride&&s.groom?"🔗 Ссылка пары: "+location.href:"";
+document.getElementById("bride").value=s.bride||"";document.getElementById("groom").value=s.groom||"";document.getElementById("wdate").value=s.date||"";document.getElementById("share").innerHTML=s.bride&&s.groom?"🔗 Ссылка пары: "+location.href:"";
 dash.innerHTML=s.bride?'<div class="card"><h2 class="center">'+s.bride+' ❤️ '+s.groom+'</h2><p class="center">'+(s.date?("До свадьбы: "+Math.max(0,Math.ceil((new Date(s.date+"T12:00:00")-new Date())/86400000))+" дней"):"Дата не выбрана")+'</p><div class="stats"><div class="stat"><b>'+s.xp+'</b>⭐ XP</div><div class="stat"><b>'+s.done.length+'/40</b>✅ дела</div><div class="stat"><b>'+level()+'</b>🎖 уровень</div></div><p class="muted">😌 Тревожность: '+s.anxiety+'%</p><div class="bar"><i style="width:'+s.anxiety+'%"></i></div><p class="muted">'+anxietyText()+'</p></div>':"";
 route.innerHTML='<div class="card"><h2>🗺️ Ваш свадебный путь</h2><p class="muted">В открытом этапе все 8 заданий доступны сразу. Выбирайте любое — порядок полностью за вами.</p>'+STAGES.map((x,i)=>{let c=count(i),op=unlocked(i);return '<div class="stage '+(op?'open':'locked')+' '+(c===8?'done':'')+'"><div class="stageTop"><h3>'+x[0]+' '+x[1]+'</h3><span class="badge">'+(c===8?"✓ готово":op?"🔓 открыто":"🔒 закрыто")+'</span></div><p class="muted">'+x[2]+' · '+c+'/8</p>'+TASKS.slice(i*8,i*8+8).map((t,j)=>{let k=i*100+j,d=s.done.includes(k);return '<button class="task '+(d?'done':'')+'" '+(!op||d?'disabled':'')+' onclick="complete('+i+','+j+')">'+(d?"✅":"⬜")+' <span><b>'+t[0]+'</b><small>'+t[1]+'</small></span></button>'}).join('')+'</div>'}).join('')+'</div>';
 let secret=i=>s.secrets.includes(i)?'<button disabled>✓ '+SECRETS[i][0]+'</button>':'<button onclick="openSecret('+i+')">🔐 '+SECRETS[i][0]+' · секретная глава</button>';
