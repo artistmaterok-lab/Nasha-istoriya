@@ -61,6 +61,14 @@ const SECRETS=[
 ["Начало истории","Каждый назовите, чего больше всего ждёте от семейной жизни."],["Воспоминание","Загадка: то, что нельзя потрогать, но можно хранить годами. Ответ: воспоминание. Найдите общую фотографию и расскажите её историю."],["Три слова","Каждый назовите три слова, описывающие ваши отношения. Повторы запрещены."],["Наш символ","Найдите рядом предмет, который напоминает вам о вашей паре."],["Вкусное воспоминание","Каждый назовите блюдо, связанное с приятным общим воспоминанием."],["Наша песня","Каждый назовите песню, которая напоминает о вашей истории."],["Через год","Закончите: «Через год я хочу, чтобы мы обязательно…»"],["Тайный знак","Придумайте жест или фразу со смыслом: «давай минуту только вдвоём»."],["Маленькое спасибо","Каждый назовите одну вещь, за которую благодарны друг другу сегодня."],["Финальная глава","Закончите: «Я хочу, чтобы в день нашей свадьбы мы обязательно…»"]
 ];
 const GOLD_KEY="nasha_story_v2";
+const SUPABASE_URL="https://rwyqzifdmurhhwyfsiul.supabase.co";
+const SUPABASE_KEY="sb_publishable_lOblib_sb8qICW7uzS99KQ_jukRmQgt";
+let syncTimer=null;
+async function cloudLoad(){try{const r=await fetch(SUPABASE_URL+"/rest/v1/wedding_couples?id=eq."+encodeURIComponent(pairId)+"&select=*",{headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY}});if(!r.ok)return;const rows=await r.json();if(rows[0]){const row=rows[0],cloud=row.state||{};s={...s,...cloud,bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();}}catch(e){console.warn("Cloud load failed",e)}}
+async function cloudSave(){try{const payload={id:pairId,bride_name:s.bride||"",groom_name:s.groom||"",wedding_date:s.date||null,updated_at:new Date().toISOString(),state:{done:s.done,xp:s.xp,anxiety:s.anxiety,gold:s.gold,secrets:s.secrets,swipes:s.swipes}};await fetch(SUPABASE_URL+"/rest/v1/wedding_couples",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});}catch(e){console.warn("Cloud save failed",e)}}
+function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
+function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
+
 const pairId=new URLSearchParams(location.search).get("pair")||crypto.randomUUID();
 if(!location.search)history.replaceState({},document.title,location.pathname+"?pair="+pairId);
 const key=GOLD_KEY+":"+pairId;
@@ -120,6 +128,7 @@ document.addEventListener("click",e=>{
  if(a==="close-play"){closePlay();}
 });
 render();
+cloudLoad();
 </script>
 </body>
 </html>
