@@ -110,7 +110,7 @@ async function cloudLoad(){
  try{
   if(!ownerToken&&!deviceToken){if(await pairExists()){showAccessGate()}else{await claimOwner();render();}return}
   const token=ownerToken||deviceToken;const rows=await rpc("get_pair",{p_pair_id:pairId,p_token_hash:await sha256(token)});
-  if(rows[0]){const row=rows[0],cloud=row.state&&typeof row.state==="object"?row.state:{};s={...s,...cloud,done:Array.isArray(cloud.done)?cloud.done.filter(Number.isInteger):s.done,gold:Array.isArray(cloud.gold)?cloud.gold:s.gold,secrets:Array.isArray(cloud.secrets)?cloud.secrets:s.secrets,xp:Number.isFinite(cloud.xp)?cloud.xp:s.xp,anxiety:Number.isFinite(cloud.anxiety)?cloud.anxiety:s.anxiety,bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();}
+  if(rows[0]){const row=rows[0],cloud=row.state&&typeof row.state==="object"?row.state:{},localDone=Array.isArray(s.done)?s.done:[],cloudDone=Array.isArray(cloud.done)?cloud.done.filter(Number.isInteger):[],mergedDone=[...new Set([...localDone,...cloudDone])].sort((a,b)=>a-b),localGold=Array.isArray(s.gold)?s.gold:[],cloudGold=Array.isArray(cloud.gold)?cloud.gold:[],localSecrets=Array.isArray(s.secrets)?s.secrets:[],cloudSecrets=Array.isArray(cloud.secrets)?cloud.secrets:[],localWasAhead=localDone.length>cloudDone.length;s={...s,...cloud,done:mergedDone,gold:[...new Set([...localGold,...cloudGold])],secrets:[...new Set([...localSecrets,...cloudSecrets])],xp:Math.max(Number.isFinite(s.xp)?s.xp:0,Number.isFinite(cloud.xp)?cloud.xp:0),anxiety:Math.max(10,Math.round(100-mergedDone.length*1.35)),bride:row.bride_name||s.bride,groom:row.groom_name||s.groom,date:row.wedding_date||s.date};saveLocal();render();if(localWasAhead)cloudSave();}
  }catch(err){console.warn(err);showSyncError()}
 }
 async function cloudSave(){
@@ -120,8 +120,15 @@ async function cloudSave(){
  }catch(e){console.warn("Cloud save failed",e)}
 }
 function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
-const pairId=new URLSearchParams(location.search).get("pair")||crypto.randomUUID();
-if(!location.search)history.replaceState({},document.title,location.pathname+"?pair="+pairId);
+const requestedPairId=new URLSearchParams(location.search).get("pair");
+function findSavedPair(){
+ let best="";let bestDone=-1;
+ for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i)||"";if(!k.startsWith(GOLD_KEY+":"))continue;try{const v=JSON.parse(localStorage.getItem(k)||"{}");const n=Array.isArray(v.done)?v.done.length:0;if(n>bestDone){bestDone=n;best=k.slice((GOLD_KEY+":").length);}}catch{}}
+ return best;
+}
+const rootPairId=localStorage.getItem("nasha_story_root_pair")||findSavedPair()||crypto.randomUUID();
+const pairId=requestedPairId||rootPairId;
+if(!requestedPairId){localStorage.setItem("nasha_story_root_pair",pairId);history.replaceState({},document.title,location.pathname+"?pair="+pairId);}
 const key=GOLD_KEY+":"+pairId;
 let syncTimer=null;
 let ownerToken=localStorage.getItem("nasha_owner:"+pairId)||"";
