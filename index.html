@@ -144,7 +144,7 @@ function load(){
  catch{return defaultState();}
 }
 let s=load();
-function saveLocal(){localStorage.setItem(key,JSON.stringify(s))}
+function saveLocal(){safeSet(key,JSON.stringify(s))}
 function save(){saveLocal();clearTimeout(syncTimer);syncTimer=setTimeout(cloudSave,250)}
 function count(stage){const done=Array.isArray(s.done)?s.done:[];return done.filter(k=>k>=stage*8&&k<(stage+1)*8).length;}
 function unlocked(stage){return stage===0||count(stage-1)===8;}
