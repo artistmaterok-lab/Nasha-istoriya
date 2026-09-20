@@ -16,7 +16,7 @@ let s=load();
 function load(){try{let x=JSON.parse(localStorage.getItem(KEY)||"null");return{xpn:Number(x?.xpn)||Number(x?.xp)||0,done:Array.isArray(x?.done)?x.done.filter(n=>Number.isInteger(n)&&n>=0&&n<40):[],envelopes:Array.isArray(x?.envelopes)?x.envelopes.filter(n=>Number.isInteger(n)&&n>=0&&n<5):[]}}catch(e){return{xpn:0,done:[],envelopes:[]}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
 function cnt(k){return s.done.filter(x=>x>=k*8&&x<(k+1)*8).length}
-function unlocked(k){return k===0||cnt(k-1)===8}
+function unlocked(k){return true}
 function lvl(){let n="Салаги";for(const x of LEVELS)if(s.xpn>=x[0])n=x[1];return n}
 function prog(){let cats=[0,1,2,3,4].filter(k=>cnt(k)===8).length;return Math.min(100,Math.round(s.done.length/40*80+cats*2+s.envelopes.length/5*10))}
 function esc(x){return String(x).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
